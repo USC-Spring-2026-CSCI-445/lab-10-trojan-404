@@ -273,6 +273,8 @@ class ObstacleFreeWaypointController:
         self.max_linear_speed = 0.2
         self.max_angular_speed = 0.8
 
+        self.rate = rospy.Rate(10)
+
     def _odom_callback(self, msg: Odometry):
         self.current_position["x"] = msg.pose.pose.position.x
         self.current_position["y"] = msg.pose.pose.position.y
@@ -290,38 +292,41 @@ class ObstacleFreeWaypointController:
     def control_robot(self):
         if self.waypoint_idx >= len(self.waypoints):
             self._stop_robot()
+            self.rate.sleep()
             return
-
+    
         target = self.waypoints[self.waypoint_idx]
-
+    
         dx = target["x"] - self.current_position["x"]
         dy = target["y"] - self.current_position["y"]
         distance_error = sqrt(dx**2 + dy**2)
-
+    
         if distance_error < self.goal_threshold:
             self.waypoint_idx += 1
             if self.waypoint_idx >= len(self.waypoints):
                 self._stop_robot()
+            self.rate.sleep()
             return
-
+    
         desired_theta = atan2(dy, dx)
         angle_error = desired_theta - self.current_position["theta"]
-
+    
         while angle_error > pi:
             angle_error -= 2 * pi
         while angle_error < -pi:
             angle_error += 2 * pi
-
+    
         twist = Twist()
-
+    
         if abs(angle_error) > 0.2:
             twist.linear.x = 0.0
         else:
             twist.linear.x = min(self.max_linear_speed, 0.15 * distance_error)
-
+    
         twist.angular.z = max(-self.max_angular_speed, min(self.max_angular_speed, 1.2 * angle_error))
-
+    
         self.cmd_pub.publish(twist)
+        self.rate.sleep()
 ######### Your code ends here #########
 
 
